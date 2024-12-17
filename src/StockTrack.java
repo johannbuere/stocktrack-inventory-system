@@ -1,16 +1,13 @@
 import java.awt.*;
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
-
+import java.util.List;
+import java.util.Random;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-public class StockTrack{
-    //Attributes
+public class StockTrack {
+    //attributes
     private JFrame mainFrame;
     private ImageIcon logo;
     private static final String FILE = "inventory.txt";
@@ -27,29 +24,23 @@ public class StockTrack{
     private DefaultTableModel tableModel;
     private JTable invTable;
 
-    //Constructor
-    public StockTrack(){
+    //constructor
+    public StockTrack() {
         //logo
-        logo = new ImageIcon("logo.jpg");                               //change this for logo
+        logo = new ImageIcon("logo.jpg"); //change this for your logo image
 
-        //frame stuff
-        mainFrame = new JFrame("StockTrack: Supermarket Iventory System");
-        mainFrame.setSize(700,500);
+        //frame setup
+        mainFrame = new JFrame("StockTrack: Supermarket Inventory System");
+        mainFrame.setSize(700, 500);
         mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        mainFrame.setIconImage(logo.getImage());                                
-        mainFrame.setLayout(new BorderLayout());                                //N,S,E,W,C 
-        mainFrame.getContentPane().setBackground(new Color(0xf5f0e1));
-        
-        //panel north (TOP)
-        JPanel topPanel = new JPanel();
-        topPanel.setBackground(new Color(0xf5f0e1));
-        topPanel.setLayout(new GridLayout(4,2));
+        mainFrame.setIconImage(logo.getImage());
+        mainFrame.setLayout(new BorderLayout());
 
-        //panel south (bottom)
-        JPanel botPanel = new JPanel();
-        botPanel.setBackground(new Color(0xf5f0e1));
-        
-        topPanel.add(new JLabel("\tItem Name:"));
+        //top panel 
+        JPanel topPanel = new JPanel();
+        topPanel.setLayout(new GridLayout(4, 2));
+
+        topPanel.add(new JLabel("Item Name:"));
         productField = new JTextField();
         productField.setBorder(BorderFactory.createLineBorder(new Color(0x1e3d59), 2));
         topPanel.add(productField);
@@ -64,162 +55,160 @@ public class StockTrack{
         priceField.setBorder(BorderFactory.createLineBorder(new Color(0x1e3d59), 2));
         topPanel.add(priceField);
 
-        //butts stuff
+        //buttons
         addButton = new JButton("Add Item");
         updateButton = new JButton("Update Item");
         deleteButton = new JButton("Delete Item");
         viewButton = new JButton("View Inventory");
-        
+
         topPanel.add(addButton);
         topPanel.add(updateButton);
+
+        JPanel botPanel = new JPanel();
         botPanel.add(viewButton);
         botPanel.add(deleteButton);
 
-        //add panel to main frame
-        mainFrame.add(topPanel, BorderLayout.NORTH);
-        mainFrame.add(botPanel, BorderLayout.SOUTH);
-
-        //inventory table
-        String column[] = {"Item Name", "Quantity", "Price"};
+        //table for inventory
+        String column[] = {"Item Name", "Quantity", "Price", "Product Key"};
         tableModel = new DefaultTableModel(column, 0);
         invTable = new JTable(tableModel);
-        invTable.setEnabled(false);                             //sets the table to view only, bawal touch 
+        invTable.setEnabled(false); // View-only table
         JScrollPane tablePane = new JScrollPane(invTable);
-        
 
-        //add table to main frame
-        mainFrame.add(tablePane);
+        //add stuff to frame
+        mainFrame.add(topPanel, BorderLayout.NORTH);
+        mainFrame.add(botPanel, BorderLayout.SOUTH);
+        mainFrame.add(tablePane, BorderLayout.CENTER);
 
-        //buttun actions (gamit nalang nung lambda  expression kesa nung traditional)
+        //button actions lambdas nalang
         addButton.addActionListener(click -> addItem());
         updateButton.addActionListener(click -> updateItem());
         deleteButton.addActionListener(click -> deleteItem());
         viewButton.addActionListener(click -> viewInventory());
-        
-        //make the main frame visible
+
+        //make the frame visible
         mainFrame.setVisible(true);
     }
 
-    //method for adding item
-    private void addItem(){
-        try(FileWriter file = new FileWriter(FILE, true)){
+    //method to add item
+    private void addItem() {
+        try (FileWriter file = new FileWriter(FILE, true)) {
             String itemName = productField.getText();
             int quantity = Integer.parseInt(quantityField.getText());
             double price = Double.parseDouble(priceField.getText());
 
-            file.write(itemName + "," + quantity + "," + price + "\n");
+            String productKey = generateProductKey(); // Generate 6-digit product key
+
+            // Write the data to the file
+            file.write(itemName + "," + quantity + "," + price + "," + productKey + "\n");
+
             JOptionPane.showMessageDialog(mainFrame, "Item added successfully!");
-        }
-        catch(IOException exc){
-            JOptionPane.showMessageDialog(mainFrame, "Error writing to file: " + exc.getMessage());
+        } catch (IOException | NumberFormatException exc) {
+            JOptionPane.showMessageDialog(mainFrame, "Error: " + exc.getMessage());
         }
     }
-    //method for updating item
-    private void updateItem(){
-        java.util.List<String> inventory = new ArrayList<>();
+
+    //method to view inventory
+    private void viewInventory() {
+        tableModel.setRowCount(0); // Clear table
+
+        try (BufferedReader read = new BufferedReader(new FileReader(FILE))) {
+            String line;
+
+            while ((line = read.readLine()) != null) {
+                String[] data = line.split(",");
+                if (data.length == 4) { // Ensure all fields are present
+                    tableModel.addRow(data);
+                }
+            }
+        } catch (FileNotFoundException exc) {
+            JOptionPane.showMessageDialog(mainFrame, "Inventory file not found. Add items to create the file.");
+        } catch (IOException exc) {
+            JOptionPane.showMessageDialog(mainFrame, "Error reading file: " + exc.getMessage());
+        }
+    }
+
+    //method to update item
+    private void updateItem() {
+        List<String> inventory = new ArrayList<>();
         boolean found = false;
         String itemName = productField.getText();
 
-        try(BufferedReader br = new BufferedReader(new FileReader(FILE))){
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE))) {
             String line;
 
-            while((line = br.readLine()) != null){
-                String data[] = line.split(",");
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split(",");
 
-                if(data[0].equalsIgnoreCase(itemName)){
+                if (data[0].equalsIgnoreCase(itemName)) {
                     int newQuantity = Integer.parseInt(quantityField.getText());
                     double newPrice = Double.parseDouble(priceField.getText());
-                    inventory.add(data[0] + "," + newQuantity + "," + newPrice);
+                    inventory.add(data[0] + "," + newQuantity + "," + newPrice + "," + data[3]); // Keep product key
                     found = true;
-                }
-                else{
+                } else {
                     inventory.add(line);
                 }
             }
-        }
-        catch(IOException exc){
+        } catch (IOException exc) {
             JOptionPane.showMessageDialog(mainFrame, "Error reading file: " + exc.getMessage());
         }
 
-        if(found){
-            try(FileWriter fw = new FileWriter(FILE)){
-                for(String record : inventory){
+        if (found) {
+            try (FileWriter fw = new FileWriter(FILE)) {
+                for (String record : inventory) {
                     fw.write(record + "\n");
                 }
-
                 JOptionPane.showMessageDialog(mainFrame, "Item updated successfully!");
-
-            }
-            catch(IOException exc){
+            } catch (IOException exc) {
                 JOptionPane.showMessageDialog(mainFrame, "Error writing to file: " + exc.getMessage());
             }
-        }
-        else{
+        } else {
             JOptionPane.showMessageDialog(mainFrame, "Item not found.");
         }
-    }   
+    }
 
-    //method for deleting item
-    private void deleteItem(){
-        java.util.List<String> inventory = new ArrayList<>();
+    //method to delete item
+    private void deleteItem() {
+        List<String> inventory = new ArrayList<>();
         boolean found = false;
-        String item = productField.getText();
+        String itemName = productField.getText();
 
-        try (BufferedReader read = new BufferedReader(new FileReader(FILE))){
+        try (BufferedReader read = new BufferedReader(new FileReader(FILE))) {
             String line;
 
-            while((line = read.readLine()) != null){
-                String data[] = line.split(",");
-
-                if(!data[0].equalsIgnoreCase(item)){
+            while ((line = read.readLine()) != null) {
+                String[] data = line.split(",");
+                if (!data[0].equalsIgnoreCase(itemName)) {
                     inventory.add(line);
-                }else{
+                } else {
                     found = true;
                 }
             }
-        }
-        catch(IOException exc){
+        } catch (IOException exc) {
             JOptionPane.showMessageDialog(mainFrame, "Error reading file: " + exc.getMessage());
         }
 
-        if(found){
-            try(FileWriter file = new FileWriter(FILE)){
-                for(String record : inventory){
+        if (found) {
+            try (FileWriter file = new FileWriter(FILE)) {
+                for (String record : inventory) {
                     file.write(record + "\n");
                 }
                 JOptionPane.showMessageDialog(mainFrame, "Item deleted successfully!");
-            }
-            catch(IOException exc){
+            } catch (IOException exc) {
                 JOptionPane.showMessageDialog(mainFrame, "Error writing to file: " + exc.getMessage());
             }
-        }
-        else{
+        } else {
             JOptionPane.showMessageDialog(mainFrame, "Item not found.");
         }
     }
 
-    //method for viewing item
-    private void viewInventory(){
-        tableModel.setRowCount(0);          
-
-        try(BufferedReader read = new BufferedReader(new FileReader(FILE))){
-            String line;
-            while((line = read.readLine()) != null){
-                String data[] = line.split(",");
-                if(data.length == 3){
-                    tableModel.addRow(data);                    //add stuff into table
-                }
-            }
-        } 
-        catch(FileNotFoundException exc){
-            JOptionPane.showMessageDialog(mainFrame, "Inventory file not found. Add items to create the file.");
-        }
-        catch(IOException exc){
-            JOptionPane.showMessageDialog(mainFrame, "Error reading file: " + exc.getMessage());
-        }
+    //method to generate a unique 6-digit product key
+    private String generateProductKey() {
+        Random rand = new Random();
+        return String.format("%06d", rand.nextInt(1000000)); //generates a 6-digit random number
     }
 
-    //Main method
+    //main method for testing
     public static void main(String[] args) {
         new StockTrack();
     }
