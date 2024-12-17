@@ -1,0 +1,2 @@
+EMP3384,kr,kr123,Receptionist,30000
+EMP6950,lerk,lerk123,Receptionist,30000
